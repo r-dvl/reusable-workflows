@@ -1,0 +1,54 @@
+name: Pylint
+
+on:
+  workflow_call:
+    inputs:
+      threshold:
+        description: "Pylint score threshold to exceed"
+        required: false
+        default: 8.5
+        type: number
+  ## Real usage
+  # pull_request:
+    # branches:
+      # - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    env:
+      PYLINT_THRESHOLD: ${{ inputs.threshold || 8.5 }}  # Default threshold is 8.5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Analyzing the code with pylint
+        id: pylint
+        run: |
+          pylint --rcfile=.pylintrc $(git ls-files '*.py') > pylint_report.txt || true
+
+          cat pylint_report.txt
+
+          score=$(awk '/^Your code has been rated at/{print $7}' pylint_report.txt | cut -d'/' -f1)
+          echo "Pylint score: $score"
+
+          if (( $(echo "$score < $PYLINT_THRESHOLD" | bc -l) )); then
+            echo "Pylint score ($score) is below the threshold ($PYLINT_THRESHOLD). Failing the build."
+            exit 1
+          else
+            echo "Pylint score ($score) meets the required threshold ($PYLINT_THRESHOLD). Success."
+          fi
