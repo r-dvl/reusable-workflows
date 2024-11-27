@@ -1,0 +1,39 @@
+name: Deploy to Portainer
+
+on:
+  workflow_call:
+    inputs:
+      domain:
+        description: 'Portainer domain'
+        required: true
+        type: string
+      image:
+        description: 'Docker image to deploy'
+        required: true
+        type: string
+      stack_id:
+        description: 'Portainer Stack ID'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy image to Portainer
+        run: |
+          curl -s -X POST "https://${{ inputs.domain }}/api/stacks/${{ inputs.stack_id }}/deploy" \
+            -H "Authorization: Bearer ${{ secrets.PORTAINER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            --data-binary @- <<EOF
+          {
+            "prune": true,
+            "env": [
+              {
+                "name": "DOCKER_IMAGE",
+                "value": "${{ inputs.image }}"
+              }
+            ]
+          }
+          EOF
